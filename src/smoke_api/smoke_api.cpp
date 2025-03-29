@@ -5,7 +5,6 @@
 #include <core/paths.hpp>
 #include <common/steamclient_exports.hpp>
 #include <koalabox/globals.hpp>
-#include <koalabox/dll_monitor.hpp>
 #include <koalabox/logger.hpp>
 #include <koalabox/hook.hpp>
 #include <koalabox/loader.hpp>
@@ -40,40 +39,6 @@ void init_proxy_mode() {
     globals::steamapi_module = koalabox::loader::load_original_library(paths::get_self_path(), STEAMAPI_DLL);
 }
 
-void init_hook_mode() {
-    LOG_INFO("🪝 Detected hook mode")
-
-    koalabox::dll_monitor::init_listener(
-        STEAMCLIENT_DLL, [](const HMODULE& library) {
-            globals::steamclient_module = library;
-
-            DETOUR_STEAMCLIENT(CreateInterface)
-
-            koalabox::dll_monitor::shutdown_listener();
-        }
-    );
-}
-
-bool is_valve_steam(const String& exe_name) noexcept {
-    try {
-        if (exe_name < not_equals > "steam.exe") {
-            return false;
-        }
-
-        // Verify that it's steam from valve, and not some other executable coincidentally named steam
-
-        const HMODULE steam_handle = koalabox::win_util::get_module_handle_or_throw(nullptr);
-        const auto manifest = koalabox::win_util::get_module_manifest(steam_handle);
-
-        // Steam.exe manifest is expected to contain this string
-        return manifest < contains > "valvesoftware.steam.steam";
-    } catch (const Exception& e) {
-        LOG_ERROR("{} -> {}", __func__, e.what())
-
-        return false;
-    }
-}
-
 namespace smoke_api {
 
     void init(HMODULE module_handle) {
@@ -86,10 +51,6 @@ namespace smoke_api {
 
             config::init_config();
 
-            if (config::instance.logging) {
-                koalabox::logger::init_file_logger(paths::get_log_path());
-            }
-
             // This kind of timestamp is reliable only for CI builds, as it will reflect the compilation
             // time stamp only when this file gets recompiled.
             LOG_INFO("🐨 {} v{} | Compiled at '{}'", PROJECT_NAME, PROJECT_VERSION, __TIMESTAMP__)
@@ -99,20 +60,7 @@ namespace smoke_api {
 
             LOG_DEBUG("Process name: '{}' [{}-bit]", exe_name, BITNESS)
 
-            if (koalabox::hook::is_hook_mode(globals::smokeapi_handle, STEAMAPI_DLL)) {
-                koalabox::hook::init(true);
-
-                if (is_valve_steam(exe_name)) {
-#if COMPILE_STORE_MODE
-                    LOG_INFO("🛍️ Detected Store mode")
-                    store::init_store_mode();
-#endif
-                } else {
-                    init_hook_mode();
-                }
-            } else {
-                init_proxy_mode();
-            }
+            init_proxy_mode();
 
             LOG_INFO("🚀 Initialization complete")
         } catch (const Exception& ex) {

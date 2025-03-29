@@ -35,12 +35,8 @@ configure_build_config(extra_build_config)
 
 set(
     SMOKE_API_SOURCES
-    src/common/app_cache.cpp
-    src/common/app_cache.hpp
     src/common/steamclient_exports.cpp
     src/common/steamclient_exports.hpp
-    src/core/api.cpp
-    src/core/api.hpp
     src/core/globals.cpp
     src/core/globals.hpp
     src/core/paths.cpp

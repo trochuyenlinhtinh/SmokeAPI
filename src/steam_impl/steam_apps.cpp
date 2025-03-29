@@ -1,11 +1,9 @@
 #include <steam_impl/steam_apps.hpp>
 #include <steam_impl/steam_impl.hpp>
-#include <common/app_cache.hpp>
 #include <smoke_api/config.hpp>
 #include <koalabox/logger.hpp>
 #include <koalabox/util.hpp>
 #include <core/types.hpp>
-#include <core/api.hpp>
 
 namespace steam_apps {
     /// Steamworks may max GetDLCCount value at 64, depending on how much unowned DLCs the user has.
@@ -18,59 +16,6 @@ namespace steam_apps {
 
     String get_app_id_log(const AppId_t app_id) {
         return app_id ? fmt::format("App ID: {:>8}, ", app_id) : "";
-    }
-
-    /**
-     * @param app_id
-     * @return boolean indicating if the function was able to successfully fetch DLC IDs from all sources.
-     */
-    void fetch_and_cache_dlcs(AppId_t app_id) {
-        static Mutex mutex;
-        const MutexLockGuard guard(mutex);
-
-        if (app_id == 0) {
-            LOG_ERROR("{} -> App ID is 0", __func__)
-            app_dlcs[app_id] = {}; // Dummy value to avoid checking for presence on each access
-            return;
-        }
-
-        // We want to fetch data only once. However, if any of the remote sources have failed
-        // previously, we want to attempt fetching again.
-        if (fully_fetched.contains(app_id)) {
-            return;
-        }
-
-        // Any of the sources might fail, so we try to get optimal result
-        // by aggregating results from all the sources into a single set.
-        Vector<DLC> aggregated_dlcs;
-
-        const auto append_dlcs = [&](const Vector<DLC>& source, const String& source_name) {
-            LOG_DEBUG("App ID {} has {} DLCs defined in {}", app_id, source.size(), source_name)
-            aggregated_dlcs < append > source;
-        };
-
-        append_dlcs(smoke_api::config::get_extra_dlcs(app_id), "local config");
-
-        const auto github_dlcs_opt = api::fetch_dlcs_from_github(app_id);
-        if (github_dlcs_opt) {
-            append_dlcs(*github_dlcs_opt, "GitHub repository");
-        }
-
-        const auto steam_dlcs_opt = api::fetch_dlcs_from_steam(app_id);
-        if (steam_dlcs_opt) {
-            append_dlcs(*steam_dlcs_opt, "Steam API");
-        }
-
-        if (github_dlcs_opt && steam_dlcs_opt) {
-            fully_fetched.insert(app_id);
-        } else {
-            append_dlcs(smoke_api::app_cache::get_dlcs(app_id), "disk cache");
-        }
-
-        // Cache DLCs in memory and cache for future use
-        app_dlcs[app_id] = aggregated_dlcs;
-
-        smoke_api::app_cache::save_dlcs(app_id, aggregated_dlcs);
     }
 
     bool IsDlcUnlocked(
@@ -105,15 +50,11 @@ namespace steam_apps {
             const auto original_count = original_function();
             LOG_DEBUG("{} -> Original DLC count: {}", function_name, original_count)
 
-            if (original_count < MAX_DLC) {
-                return total_count(original_count);
+            if (original_count >= MAX_DLC) {
+                LOG_DEBUG("Game has {} or more DLCs. Fetching DLCs from remote sources.", original_count)
             }
 
-            LOG_DEBUG("Game has {} or more DLCs. Fetching DLCs from remote sources.", original_count)
-
-            fetch_and_cache_dlcs(app_id);
-
-            return total_count(static_cast<int>(app_dlcs[app_id].size()));
+            return total_count(original_count);
         } catch (const Exception& e) {
             LOG_ERROR(" Uncaught exception: {}", function_name, e.what())
             return 0;

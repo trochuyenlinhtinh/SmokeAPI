@@ -60,11 +60,7 @@
 #define DETOUR_STEAMCLIENT(FUNC) $DETOUR(FUNC, #FUNC, globals::steamclient_module)
 #define DETOUR_VSTDLIB(FUNC) $DETOUR(vstdlib::FUNC, #FUNC, globals::vstdlib_module)
 
-#ifdef _WIN64
 #define COMPILE_STORE_MODE 0
-#else
-#define COMPILE_STORE_MODE 1
-#endif
 
 constexpr auto STEAM_APPS = "STEAMAPPS_INTERFACE_VERSION";
 constexpr auto STEAM_CLIENT = "SteamClient";
