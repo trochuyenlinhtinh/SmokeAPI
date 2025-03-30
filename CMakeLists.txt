@@ -73,28 +73,6 @@ set(
     ${GENERATED_LINKER_EXPORTS}
 )
 
-# Include store_mode mode sources only in 32-bit builds
-if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set(
-        SMOKE_API_SOURCES ${SMOKE_API_SOURCES}
-        src/store_mode/steamclient/client_app_manager.cpp
-        src/store_mode/steamclient/client_apps.cpp
-        src/store_mode/steamclient/client_inventory.cpp
-        src/store_mode/steamclient/client_user.cpp
-        src/store_mode/steamclient/client_utils.cpp
-        src/store_mode/steamclient/steamclient.cpp
-        src/store_mode/steamclient/steamclient.hpp
-        src/store_mode/vstdlib/vstdlib.cpp
-        src/store_mode/vstdlib/vstdlib.hpp
-        src/store_mode/store.cpp
-        src/store_mode/store.hpp
-        src/store_mode/store_api.cpp
-        src/store_mode/store_api.hpp
-        src/store_mode/store_cache.cpp
-        src/store_mode/store_cache.hpp
-    )
-endif ()
-
 add_library(SmokeAPI SHARED ${SMOKE_API_SOURCES} ${VERSION_RESOURCE})
 
 configure_output_name(${STEAMAPI_DLL})
